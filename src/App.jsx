@@ -54,6 +54,7 @@ const getProducts = async () => {
     try{
       const resGetCart = await axios.get(`${BASE_URL}/v2/api/${API_PATH}/cart`);
       setCart(Array.isArray(resGetCart.data.data.carts)?resGetCart.data.data.carts:[]);
+      console.log("resGetCart.data.data.carts",resGetCart.data.data.carts)
       getTotalPrice();
     }catch(error){
       console.log(error)
@@ -61,12 +62,13 @@ const getProducts = async () => {
   }
 
   const updateCart = async(item,num) => {
+    console.log("updateCart",item)
     setIsScreenLoading(true);
     try{
       if((item.qty+num)>0){
         const resUpdateCart = await axios.put(`${BASE_URL}/v2/api/${API_PATH}/cart/${item.id}`,{
           data:{
-            product_id:item.id,
+            product_id:item.product_id,
             qty:item.qty+num
           }
       })
@@ -268,13 +270,16 @@ const getProducts = async () => {
           </div>
         </div>
 
-        <div className="text-end py-3">
+        {
+          cart.length?        <div className="text-end py-3">
           <button type="button" onClick={removeCart} className="btn btn-outline-danger">
             清空購物車
           </button>
-        </div>
+        </div>:''
+        }
 
-        <table className="table align-middle">
+        {
+          cart.length?        <table className="table align-middle">
           <thead>
             <tr>
               <th></th>
@@ -346,7 +351,9 @@ const getProducts = async () => {
               </td>
             </tr>
           </tfoot>
-        </table>
+        </table>:''
+        }
+
       </div>
 
       <div className="my-5 row justify-content-center">
