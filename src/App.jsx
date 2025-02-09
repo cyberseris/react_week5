@@ -1,4 +1,5 @@
-import { createRef, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
 import axios from "axios";
 import { Modal } from "bootstrap";
 
@@ -9,6 +10,7 @@ function App() {
   const [products, setProducts] = useState([]);
   const [tempProduct, setTempProduct] = useState([]);
   const [cart, setCart] = useState([]);
+  const [qtySelect, setQtySelect] = useState(1);
 
   useEffect(() => {
     getProducts();
@@ -25,7 +27,6 @@ const getProducts = async () => {
     };
 
   const addCart = async(product) => {
-    console.log("addCart", product)
     try{
       const resAddCart = await axios.post(`${BASE_URL}/v2/api/${API_PATH}/cart`, {
         data:{
@@ -35,7 +36,6 @@ const getProducts = async () => {
       });
       setQtySelect(1);
       getCart();
-      console.log("resAddCart", resAddCart);
     }catch(error){
       console.log(error)
     }
@@ -67,22 +67,18 @@ const getProducts = async () => {
     }
   }
 
-  const deleteItem = async(id) => {
-    console.log("deleteItem")
+  const removeCartItem = async(id) => {
     try{
-      const resDeleteItem = await axios.delete(`${BASE_URL}/v2/api/${API_PATH}/cart/${id}`); 
-      console.log("resDeleteItem", resDeleteItem)
+      const resremoveCartItem = await axios.delete(`${BASE_URL}/v2/api/${API_PATH}/cart/${id}`); 
       getCart();
     }catch(error){
       console.log(error)
     }
   }
   
-  const deleteCart = async() => {
-    console.log("deleteCart")
+  const removeCart = async() => {
     try{
-      const resDeleteCart = await axios.delete(`${BASE_URL}/v2/api/${API_PATH}/carts`); 
-      console.log("resDeleteCart", resDeleteCart)
+      const resRemoveCart = await axios.delete(`${BASE_URL}/v2/api/${API_PATH}/carts`); 
       getCart();
     }catch(error){
       console.log(error)
@@ -90,30 +86,10 @@ const getProducts = async () => {
   }
 
   const getTotalPrice = () => {
-    console.log("getTotalPrice", cart)
     const total = cart?.reduce((prev,item)=>{
         return prev + item.product.price*item.qty
     },0);
     return total
-  }
-
-  const checkout = async() => {
-    try{
-      const resCheck = await axios.post(`${BASE_URL}/v2/api/${API_PATH}/order`,{
-        data:{
-          user: {
-            name: "test",
-            email: "test@gmail.com",
-            tel: "0912346768",
-            address: "kaohsiung"
-          },
-          message: "這是留言"          
-        }
-      })
-      console.log("resCheck: ", resCheck)
-    }catch(error){
-      console.log(error)
-    }
   }
 
   const productModalRef = useRef(null);
@@ -136,7 +112,31 @@ const getProducts = async () => {
     openModal();
   };
 
-  const [qtySelect, setQtySelect] = useState(1);
+  const  {
+    register,
+    handleSubmit,
+    formState:{errors}
+  } = useForm();
+
+  const onSubmit = handleSubmit((data) => {
+    const {message, ...user} = data;
+    const userInfo = {
+      data:{
+        user,
+        message
+      }
+    }
+    checkout(userInfo);
+  })
+
+  const checkout = async(data) => {
+    try{
+      const resCheck = await axios.post(`${BASE_URL}/v2/api/${API_PATH}/order`, data)
+      console.log("resCheck",resCheck)
+    }catch(error){
+      console.log('結帳失敗')
+    }
+  }
 
   return (
     <div className="container">
@@ -243,7 +243,7 @@ const getProducts = async () => {
         </div>
 
         <div className="text-end py-3">
-          <button type="button" onClick={deleteCart} className="btn btn-outline-danger">
+          <button type="button" onClick={removeCart} className="btn btn-outline-danger">
             清空購物車
           </button>
         </div>
@@ -254,7 +254,8 @@ const getProducts = async () => {
               <th></th>
               <th>品名</th>
               <th style={{ width: "150px" }}>數量/單位</th>
-              <th className="text-end">單價</th>
+              <th className="text">單價</th>
+              <th className="text-end">總價</th>
             </tr>
           </thead>
 
@@ -264,7 +265,7 @@ const getProducts = async () => {
                 return (
                   <tr key={item.id}>
                     <td>
-                      <button type="button" onClick={()=>deleteItem(item.id)} className="btn btn-outline-danger btn-sm">
+                      <button type="button" onClick={()=>removeCartItem(item.id)} className="btn btn-outline-danger btn-sm">
                         x
                       </button>
                     </td>
@@ -275,6 +276,7 @@ const getProducts = async () => {
                           <button
                             type="button"
                             onClick={()=>updateCart(item,-1)}
+                            disabled = {item.qty===1}
                             className="btn btn-outline-dark btn-sm"
                           >
                             -
@@ -296,10 +298,11 @@ const getProducts = async () => {
                         </span>
                       </div>
                     </td>
-                    <td className="text-end">{item.product.price}</td>
+                    <td className="">{item.product.price}</td>
+                    <td className="text-end">{item.total}</td>
                   </tr>
                 )
-              }):<td colSpan="3" className="text-center">
+              }):<td colSpan="4" className="text-center">
                 目前購物車沒有任何東西：
               </td>
             }
@@ -307,7 +310,7 @@ const getProducts = async () => {
           </tbody>
           <tfoot>
             <tr>
-              <td colSpan="3" className="text-end">
+              <td colSpan="4" className="text-end">
                 總計：
               </td>
               <td className="text-end" style={{ width: "130px" }}>
@@ -321,19 +324,25 @@ const getProducts = async () => {
       </div>
 
       <div className="my-5 row justify-content-center">
-        <form onSubmit={checkout} className="col-md-6">
+        <form onSubmit={onSubmit} className="col-md-6">
           <div className="mb-3">
             <label htmlFor="email" className="form-label">
               Email
             </label>
             <input
+              {...register('email', {
+                required: 'Email 欄位必填',
+                pattern:{
+                  value:/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+                  message:'Email 格式錯誤'
+                }
+              })}
               id="email"
               type="email"
-              className="form-control"
+              className={`form-control ${errors.email && 'is-invalid'}`}
               placeholder="請輸入 Email"
             />
-
-            <p className="text-danger my-2"></p>
+            {errors.email && <p className="text-danger my-2">{errors.email.message}</p>}
           </div>
 
           <div className="mb-3">
@@ -341,12 +350,14 @@ const getProducts = async () => {
               收件人姓名
             </label>
             <input
+              {...register('name', {
+                required: '姓名欄位必填',
+              })}
               id="name"
-              className="form-control"
+              className={`form-control ${errors.name && 'is-invalid'}`}
               placeholder="請輸入姓名"
             />
-
-            <p className="text-danger my-2"></p>
+            {errors.name && <p className="text-danger my-2">{errors.name.message}</p>}
           </div>
 
           <div className="mb-3">
@@ -354,13 +365,19 @@ const getProducts = async () => {
               收件人電話
             </label>
             <input
+              {...register('tel', {
+                required: '電話欄位必填',
+                pattern:{
+                  value:/^(0[2-8]\d{7}|09\d{8})$/,
+                  message:'電話格式錯誤'
+                }
+              })}
               id="tel"
               type="text"
-              className="form-control"
+              className={`form-control ${errors.tel && 'is-invalid'}`}
               placeholder="請輸入電話"
             />
-
-            <p className="text-danger my-2"></p>
+            {errors.tel && <p className="text-danger my-2">{errors.tel.message}</p>}
           </div>
 
           <div className="mb-3">
@@ -368,13 +385,15 @@ const getProducts = async () => {
               收件人地址
             </label>
             <input
+              {...register('address', {
+                required: '地址欄位必填',
+              })}
               id="address"
               type="text"
-              className="form-control"
+              className={`form-control ${errors.address && 'is-invalid'}`}
               placeholder="請輸入地址"
             />
-
-            <p className="text-danger my-2"></p>
+            {errors.address && <p className="text-danger my-2">{errors.address.message}</p>}
           </div>
 
           <div className="mb-3">
@@ -382,6 +401,7 @@ const getProducts = async () => {
               留言
             </label>
             <textarea
+              {...register('message')}
               id="message"
               className="form-control"
               cols="30"
