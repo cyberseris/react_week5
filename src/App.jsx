@@ -30,10 +30,10 @@ const getProducts = async () => {
       const resAddCart = await axios.post(`${BASE_URL}/v2/api/${API_PATH}/cart`, {
         data:{
           "product_id": product.id,
-          "qty": 1
+          "qty": Number(qtySelect)
         }
       });
-      
+      setQtySelect(1);
       getCart();
       console.log("resAddCart", resAddCart);
     }catch(error){
@@ -60,6 +60,7 @@ const getProducts = async () => {
             qty:item.qty+num
           }
       })
+      getCart();
       }
     }catch(error){
       console.log(error)
@@ -162,7 +163,7 @@ const getProducts = async () => {
                 <td>{product.title}</td>
                 <td>
                   <del className="h6">原價 {product.origin_price} 元</del>
-                  <div className="h5">特價 {product.origin_price}元</div>
+                  <div className="h5">特價 {product.price}元</div>
                 </td>
                 <td>
                   <div className="btn-group btn-group-sm">
