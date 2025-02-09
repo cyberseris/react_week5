@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import axios from "axios";
 import { Modal } from "bootstrap";
+import ReactLoading from 'react-loading';
+import axios from "axios";
 
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 const API_PATH = import.meta.env.VITE_API_PATH;
@@ -11,6 +12,8 @@ function App() {
   const [tempProduct, setTempProduct] = useState([]);
   const [cart, setCart] = useState([]);
   const [qtySelect, setQtySelect] = useState(1);
+  const [isScreenLoading, setIsScreenLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     getProducts();
@@ -18,15 +21,19 @@ function App() {
   }, []);
   
 const getProducts = async () => {
+      setIsScreenLoading(true);
       try {
         const res = await axios.get(`${BASE_URL}/v2/api/${API_PATH}/products`);
         setProducts(res.data.products);
       } catch (error) {
         alert("取得產品失敗");
+      } finally{
+        setIsScreenLoading(false);
       }
     };
 
   const addCart = async(product) => {
+    setIsLoading(true);
     try{
       const resAddCart = await axios.post(`${BASE_URL}/v2/api/${API_PATH}/cart`, {
         data:{
@@ -38,6 +45,8 @@ const getProducts = async () => {
       getCart();
     }catch(error){
       console.log(error)
+    }finally{
+      setIsLoading(false);
     }
   }
 
@@ -52,6 +61,7 @@ const getProducts = async () => {
   }
 
   const updateCart = async(item,num) => {
+    setIsScreenLoading(true);
     try{
       if((item.qty+num)>0){
         const resUpdateCart = await axios.put(`${BASE_URL}/v2/api/${API_PATH}/cart/${item.id}`,{
@@ -64,24 +74,32 @@ const getProducts = async () => {
       }
     }catch(error){
       console.log(error)
+    }finally{
+      setIsScreenLoading(false);
     }
   }
 
   const removeCartItem = async(id) => {
+    setIsScreenLoading(true);
     try{
       const resremoveCartItem = await axios.delete(`${BASE_URL}/v2/api/${API_PATH}/cart/${id}`); 
       getCart();
     }catch(error){
       console.log(error)
+    }finally{
+      setIsScreenLoading(false);
     }
   }
   
   const removeCart = async() => {
+    setIsScreenLoading(true);
     try{
       const resRemoveCart = await axios.delete(`${BASE_URL}/v2/api/${API_PATH}/carts`); 
       getCart();
     }catch(error){
       console.log(error)
+    }finally{
+      setIsScreenLoading(false);
     }
   }
 
@@ -115,7 +133,8 @@ const getProducts = async () => {
   const  {
     register,
     handleSubmit,
-    formState:{errors}
+    formState:{errors},
+    reset
   } = useForm();
 
   const onSubmit = handleSubmit((data) => {
@@ -130,11 +149,14 @@ const getProducts = async () => {
   })
 
   const checkout = async(data) => {
+    setIsScreenLoading(true);
     try{
       const resCheck = await axios.post(`${BASE_URL}/v2/api/${API_PATH}/order`, data)
-      console.log("resCheck",resCheck)
+      reset();
     }catch(error){
       console.log('結帳失敗')
+    }finally{
+      setIsScreenLoading(false);
     }
   }
 
@@ -151,36 +173,39 @@ const getProducts = async () => {
             </tr>
           </thead>
           <tbody>
-            {products.map((product) => (
-              <tr key={product.id}>
-                <td style={{ width: "200px" }}>
-                  <img
-                    className="img-fluid"
-                    src={product.imageUrl}
-                    alt={product.title}
-                  />
-                </td>
-                <td>{product.title}</td>
-                <td>
-                  <del className="h6">原價 {product.origin_price} 元</del>
-                  <div className="h5">特價 {product.price}元</div>
-                </td>
-                <td>
-                  <div className="btn-group btn-group-sm">
-                    <button
-                      onClick={() => handleSeeMore(product)}
-                      type="button"
-                      className="btn btn-outline-secondary me-2"
-                    >
-                      查看更多
-                    </button>
-                    <button type="button" onClick={()=>addCart(product)} className="btn btn-outline-danger">
-                      加到購物車
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {products.map((product) =>{
+              return (
+                  <tr key={product.id}>
+                    <td style={{ width: "200px" }}>
+                      <img
+                        className="img-fluid"
+                        src={product.imageUrl}
+                        alt={product.title}
+                      />
+                    </td>
+                    <td>{product.title}</td>
+                    <td>
+                      <del className="h6">原價 {product.origin_price} 元</del>
+                      <div className="h5">特價 {product.price}元</div>
+                    </td>
+                    <td>
+                      <div className="btn-group btn-group-sm">
+                        <button
+                          onClick={() => handleSeeMore(product)}
+                          type="button"
+                          className="btn btn-outline-secondary me-2"
+                        >
+                          查看更多
+                        </button>
+                        <button type="button" onClick={()=>addCart(product)} className="btn btn-outline-danger d-flex align-items-center" disabled={isLoading}>
+                          <div>加到購物車</div>
+                          {isLoading && <span className="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+            })}
           </tbody>
         </table>
 
@@ -234,8 +259,9 @@ const getProducts = async () => {
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" onClick={()=>{addCart(tempProduct)}} className="btn btn-primary">
-                  加入購物車
+                <button type="button" onClick={()=>{addCart(tempProduct)}} className="btn btn-primary d-flex align-items-center" disabled={isLoading}>
+                  <div>加入購物車</div>
+                  {isLoading && <span className="spinner-border spinner-border-sm ms-2" role="status" aria-hidden="true"></span>}
                 </button>
               </div>
             </div>
@@ -415,6 +441,21 @@ const getProducts = async () => {
           </div>
         </form>
       </div>
+
+      {isScreenLoading && <div
+          className="d-flex justify-content-center align-items-center"
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(255,255,255,0.3)",
+            zIndex: 999,
+          }}
+        >
+          <div className="spinner-border" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+      </div>}
+
     </div>
   );
 }
